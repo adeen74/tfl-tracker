@@ -39,3 +39,37 @@ python app.py
 ```
 Then open `http://127.0.0.1:5000`.
 
+
+### Day 2 — somewhere to put the data
+
+Added SQLite today so I have somewhere to actually save the status
+checks. First time really using it — turns out it's just a file, no
+separate server to install, which wasn't what I expected.
+
+Wrote one function, `init_db()`, that creates a table called
+`disruptions` if it doesn't already exist. Used `IF NOT EXISTS`
+since I call this every time the app starts, and forgot `.commit()`
+the first time and couldn't figure out why nothing was saving.
+
+```python
+import sqlite3
+
+DB_FILE = "tfl_history.db"
+
+def init_db():
+    connection = sqlite3.connect(DB_FILE)
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS disruptions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            line_name TEXT,
+            status TEXT,
+            checked_at TEXT
+        )
+    """)
+
+    connection.commit()
+    connection.close()
+```
+
