@@ -72,4 +72,44 @@ def init_db():
     connection.commit()
     connection.close()
 ```
+### Day 3 — adding real data
 
+Added the actual TFL API call today. This is the first time the app
+does something with real, live data instead of placeholder text.
+
+Hit a snag straight away, got a `429 Too Many Requests` error the
+first time I ran it, because I was using the placeholder API key.
+Turned out TFL's status endpoint works without a real key for light
+use, but the rate limit on that is very easy to hit while testing
+repeatedly. Registered for a free TFL API key and set it as an
+environment variable instead of putting it in the code, so it never
+ends up in git history.
+
+```python
+
+def fetch_live_status():
+    url = "https://api.tfl.gov.uk/Line/Mode/tube/Status"
+    params = {"app_key": TFL_APP_KEY}
+
+    response = requests.get(url, params=params, timeout=10)
+    response.raise_for_status()
+    data = response.json()
+
+    results = []
+
+    for line in data:
+        line_name = line["name"]
+        statuses = line["lineStatuses"]
+        status = statuses[0]["statusSeverityDescription"]
+
+        one_result = {"line": line_name, "status": status}
+        results.append(one_result)
+
+    return results
+```
+
+Tested it by temporarily printing the result before committing, and
+saw real live line statuses (Bakerloo on Severe Delays, Central on
+Minor Delays, etc.) —first time this project actually reflects
+something real happening in London right now, which felt like a good
+milestone.
