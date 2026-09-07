@@ -113,3 +113,25 @@ saw real live line statuses (Bakerloo on Severe Delays, Central on
 Minor Delays, etc.) —first time this project actually reflects
 something real happening in London right now, which felt like a good
 milestone.
+
+
+### Day 4 — adding real data
+
+Connected everything together. Added `save_to_history()`, which
+writes each line's status into the database, plus `/api/live` and
+`/api/history` — one fetches fresh data and saves it, the other just
+reads back what's already stored.
+
+Made sure to use `?` placeholders in the SQL insert instead of
+putting values straight into the string, learned that's what stops
+SQL injection, so wanted to actually get that instead of just copying
+it.
+
+Also added `/api/summary`, which counts how many times each line's
+had a bad status. Did the counting with a plain dictionary instead of
+SQL's `GROUP BY`, since I don't know that yet, might redo it properly
+later 
+
+Tested by hitting `/api/live` a few times, then checking `/api/history`
+and `/api/summary` actually reflected it. Core app's working now 
+still want to add a real frontend at some point.
