@@ -1,12 +1,12 @@
 # app.py
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, send_from_directory
 import sqlite3
 import requests
 import os
 from datetime import datetime
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="static")
 
 DB_FILE = "tfl_history.db"
 TFL_APP_KEY = os.environ.get("TFL_APP_KEY", "PASTE_YOUR_API_KEY_HERE")
@@ -68,7 +68,7 @@ def save_to_history(results):
 
 @app.route("/")
 def home():
-    return "London Transport Delay Tracker is running!"
+    return send_from_directory("static", "index.html")
 
 
 @app.route("/api/live")

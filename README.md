@@ -135,3 +135,29 @@ later
 Tested by hitting `/api/live` a few times, then checking `/api/history`
 and `/api/summary` actually reflected it. Core app's working now 
 still want to add a real frontend at some point.
+
+### Day 5 — a real frontend
+
+Added `static/index.html` and updated the homepage route to serve it
+with `send_from_directory` instead of returning plain text. Styled it
+as a departure board, using the real TfL line colours as status
+indicators next to each line — felt more fitting for a Tube tracker
+than a generic dashboard look.
+
+```python
+
+from flask import Flask, jsonify, send_from_directory
+
+app = Flask(__name__, static_folder="static")
+
+@app.route("/")
+def home():
+    return send_from_directory("static", "index.html")
+```
+
+Ran into a couple of local setup issues along the way that had
+nothing to do with the code itself — a stuck old Flask process
+holding onto port 5000, and having to reset my API key each new
+terminal session. Fixed both: added `TFL_APP_KEY` permanently to my
+shell config instead of exporting it every time.
+

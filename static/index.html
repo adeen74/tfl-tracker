@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>London Transport Delay Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --board: #0B0D10;
+    --panel: #14171C;
+    --panel-raised: #191D23;
+    --flap: #F2EFE6;
+    --flap-dim: #C8C4B8;
+    --rule: #2B3038;
+    --signal: #E32017;
+    --muted: #7C838D;
+
+    --bakerloo: #B36305;
+    --central: #E32017;
+    --circle: #FFD300;
+    --district: #00782A;
+    --hammersmith: #F3A9BB;
+    --jubilee: #A0A5A9;
+    --metropolitan: #9B0056;
+    --northern: #E7E7E7;
+    --piccadilly: #003688;
+    --victoria: #0098D4;
+    --waterloo: #95CDBA;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--board);
+    color: var(--flap);
+    font-family: 'Space Grotesk', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 48px 20px 80px;
+  }
+
+  .board-id {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+    margin-bottom: 14px;
+  }
+
+  h1 {
+    font-size: clamp(28px, 5vw, 40px);
+    font-weight: 700;
+    line-height: 1.15;
+    margin: 0 0 14px;
+    letter-spacing: -0.01em;
+  }
+
+  .lede {
+    color: var(--flap-dim);
+    font-size: 16px;
+    line-height: 1.6;
+    max-width: 52ch;
+    margin: 0 0 36px;
+  }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 28px;
+  }
+
+  button {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    background: var(--panel);
+    color: var(--flap);
+    border: 1px solid var(--rule);
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+
+  button:hover {
+    border-color: #454C57;
+    background: var(--panel-raised);
+  }
+
+  button:focus-visible {
+    outline: 2px solid var(--victoria);
+    outline-offset: 2px;
+  }
+
+  button[aria-pressed="true"] {
+    border-color: var(--signal);
+    color: var(--flap);
+  }
+
+  button[aria-pressed="true"]::before {
+    content: "";
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    background: var(--signal);
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+
+  .meta-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 10px;
+    margin-bottom: 2px;
+  }
+
+  .board {
+    border: 1px solid var(--rule);
+    background: var(--panel);
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: 4px 1fr auto;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .row:last-child { border-bottom: none; }
+
+  .chip {
+    width: 4px;
+    height: 22px;
+    background: var(--chip-color, var(--muted));
+  }
+
+  .row-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    letter-spacing: 0.03em;
+  }
+
+  .row-status {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--flap-dim);
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .row-status.bad { color: var(--signal); }
+
+  .row-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--flap);
+    text-align: right;
+  }
+
+  .history-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 12px;
+    align-items: baseline;
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--rule);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+
+  .history-row:last-child { border-bottom: none; }
+
+  .history-name { color: var(--flap); }
+  .history-status { color: var(--flap-dim); text-align: right; }
+  .history-time { color: var(--muted); font-size: 11px; text-align: right; }
+
+  .flip {
+    animation: flip 0.4s ease;
+  }
+
+  @keyframes flip {
+    0%   { transform: scaleY(1);    opacity: 1; }
+    45%  { transform: scaleY(0.02); opacity: 0.3; }
+    55%  { transform: scaleY(0.02); opacity: 0.3; }
+    100% { transform: scaleY(1);    opacity: 1; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .flip { animation: none; }
+  }
+
+  .state {
+    padding: 40px 16px;
+    text-align: center;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+  }
+
+  .state.error { color: var(--signal); }
+
+  footer {
+    margin-top: 36px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+  }
+
+  footer a { color: var(--flap-dim); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <div class="board-id">LU · LIVE STATUS BOARD</div>
+  <h1>London Transport Delay Tracker</h1>
+  <p class="lede">
+    Live Tube line status, pulled straight from TfL. Every check gets
+    saved, so delays build into a real history over time instead of
+    disappearing the moment you close the tab.
+  </p>
+
+  <div class="controls" role="group" aria-label="View">
+    <button type="button" data-view="live" aria-pressed="true">Check live status</button>
+    <button type="button" data-view="history" aria-pressed="false">Show history</button>
+    <button type="button" data-view="summary" aria-pressed="false">Show worst lines</button>
+  </div>
+
+  <div class="meta-row">
+    <span id="viewLabel">LIVE STATUS</span>
+    <span id="lastChecked">—</span>
+  </div>
+
+  <div class="board" id="board">
+    <p class="state">No data loaded yet — check live status to begin.</p>
+  </div>
+
+  <footer>
+    Data from Transport for London's Unified API, made available under
+    the <a href="https://tfl.gov.uk/info-for/open-data-users/" target="_blank" rel="noopener">Open Government Licence</a>.
+  </footer>
+
+</div>
+
+<script>
+  const LINE_COLORS = {
+    "Bakerloo": "var(--bakerloo)",
+    "Central": "var(--central)",
+    "Circle": "var(--circle)",
+    "District": "var(--district)",
+    "Hammersmith & City": "var(--hammersmith)",
+    "Jubilee": "var(--jubilee)",
+    "Metropolitan": "var(--metropolitan)",
+    "Northern": "var(--northern)",
+    "Piccadilly": "var(--piccadilly)",
+    "Victoria": "var(--victoria)",
+    "Waterloo & City": "var(--waterloo)"
+  };
+
+  const board = document.getElementById("board");
+  const lastChecked = document.getElementById("lastChecked");
+  const viewLabel = document.getElementById("viewLabel");
+  const buttons = document.querySelectorAll("[data-view]");
+
+  buttons.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      buttons.forEach(function (b) { b.setAttribute("aria-pressed", "false"); });
+      btn.setAttribute("aria-pressed", "true");
+      const view = btn.getAttribute("data-view");
+      if (view === "live") loadLive();
+      if (view === "history") loadHistory();
+      if (view === "summary") loadSummary();
+    });
+  });
+
+  function setLabel(text) {
+    viewLabel.textContent = text;
+  }
+
+  function stamp() {
+    const now = new Date();
+    lastChecked.textContent = "updated " + now.toLocaleTimeString();
+  }
+
+  function showState(message, isError) {
+    board.innerHTML = '<p class="state' + (isError ? " error" : "") + '">' + message + "</p>";
+  }
+
+  async function loadLive() {
+    setLabel("LIVE STATUS");
+    showState("Checking with TfL…", false);
+    try {
+      const response = await fetch("/api/live");
+      if (!response.ok) throw new Error("request failed");
+      const data = await response.json();
+      renderLive(data);
+      stamp();
+    } catch (err) {
+      showState("Couldn't reach TfL right now. Try again in a moment.", true);
+    }
+  }
+
+  async function loadHistory() {
+    setLabel("HISTORY");
+    showState("Loading saved history…", false);
+    try {
+      const response = await fetch("/api/history");
+      if (!response.ok) throw new Error("request failed");
+      const data = await response.json();
+      renderHistory(data);
+      stamp();
+    } catch (err) {
+      showState("Couldn't load history right now.", true);
+    }
+  }
+
+  async function loadSummary() {
+    setLabel("WORST LINES");
+    showState("Adding it up…", false);
+    try {
+      const response = await fetch("/api/summary");
+      if (!response.ok) throw new Error("request failed");
+      const data = await response.json();
+      renderSummary(data);
+      stamp();
+    } catch (err) {
+      showState("Couldn't load the summary right now.", true);
+    }
+  }
+
+  function renderLive(lines) {
+    if (lines.length === 0) {
+      showState("TfL returned no lines. Odd, but not your fault.", false);
+      return;
+    }
+    let html = "";
+    lines.forEach(function (item) {
+      const color = LINE_COLORS[item.line] || "var(--muted)";
+      const bad = item.status !== "Good Service";
+      html += '<div class="row flip">' +
+        '<div class="chip" style="--chip-color:' + color + '"></div>' +
+        '<div class="row-name">' + item.line + '</div>' +
+        '<div class="row-status' + (bad ? " bad" : "") + '">' + item.status + '</div>' +
+        '</div>';
+    });
+    board.innerHTML = html;
+  }
+
+  function renderHistory(rows) {
+    if (rows.length === 0) {
+      showState("Nothing saved yet — check live status a few times first.", false);
+      return;
+    }
+    let html = "";
+    rows.forEach(function (row) {
+      html += '<div class="history-row flip">' +
+        '<div class="history-name">' + row.line_name + '</div>' +
+        '<div class="history-status">' + row.status + '</div>' +
+        '<div class="history-time">' + row.checked_at + '</div>' +
+        '</div>';
+    });
+    board.innerHTML = html;
+  }
+
+  function renderSummary(rows) {
+    if (rows.length === 0) {
+      showState("No disruptions recorded yet — that's a good sign.", false);
+      return;
+    }
+    let html = "";
+    rows.forEach(function (item) {
+      const color = LINE_COLORS[item.line] || "var(--muted)";
+      html += '<div class="row flip">' +
+        '<div class="chip" style="--chip-color:' + color + '"></div>' +
+        '<div class="row-name">' + item.line + '</div>' +
+        '<div class="row-count">' + item.disruption_count + ' checks with issues</div>' +
+        '</div>';
+    });
+    board.innerHTML = html;
+  }
+</script>
+
+</body>
+</html>
