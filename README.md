@@ -161,3 +161,27 @@ holding onto port 5000, and having to reset my API key each new
 terminal session. Fixed both: added `TFL_APP_KEY` permanently to my
 shell config instead of exporting it every time.
 
+### Day 6 — first real test
+
+Split `fetch_live_status()` into two functions, one that fetches
+from TFL, and one (`parse_line_statuses`) that just reshapes the
+data. Doing that meant I could write a test for the reshaping logic
+without needing the internet at all, since it's just plain input in,
+plain output out.
+
+Installed pytest and wrote my first test, checking that a fake TFL
+shaped response gets turned into the simplified format I expect:
+
+```python
+from app import parse_line_statuses
+
+def test_parse_line_statuses():
+    fake_data = [
+        {"name": "Central", "lineStatuses": [{"statusSeverityDescription": "Good Service"}]}
+    ]
+    result = parse_line_statuses(fake_data)
+    assert result == [{"line": "Central", "status": "Good Service"}]
+```
+
+Ran `pytest` and saw it pass. First time this project has an
+automated way to check the code actually works

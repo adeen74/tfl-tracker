@@ -29,14 +29,7 @@ def init_db():
     connection.close()
 
 
-def fetch_live_status():
-    url = "https://api.tfl.gov.uk/Line/Mode/tube/Status"
-    params = {"app_key": TFL_APP_KEY}
-
-    response = requests.get(url, params=params, timeout=10)
-    response.raise_for_status()
-    data = response.json()
-
+def parse_line_statuses(data):
     results = []
 
     for line in data:
@@ -48,6 +41,17 @@ def fetch_live_status():
         results.append(one_result)
 
     return results
+
+
+def fetch_live_status():
+    url = "https://api.tfl.gov.uk/Line/Mode/tube/Status"
+    params = {"app_key": TFL_APP_KEY}
+
+    response = requests.get(url, params=params, timeout=10)
+    response.raise_for_status()
+    data = response.json()
+
+    return parse_line_statuses(data)
 
 
 def save_to_history(results):
