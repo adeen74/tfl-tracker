@@ -246,7 +246,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
-    margin-bottom: 30px;
+    margin-bottom: 16px;
   }
 
   button {
@@ -288,6 +288,105 @@
     background: var(--status-bad);
     margin-right: 9px;
     vertical-align: middle;
+  }
+
+  #myLinesBtn {
+    margin-left: auto;
+  }
+
+  .filter-note {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+    margin: 0 0 18px;
+    display: none;
+  }
+
+  .filter-note.visible { display: block; }
+
+  .filter-note button {
+    background: none;
+    border: none;
+    color: var(--victoria);
+    padding: 0;
+    text-decoration: underline;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+  }
+
+  .filter-note button:hover {
+    background: none;
+    box-shadow: none;
+    border: none;
+  }
+
+  .panel-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 10;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .panel-overlay.open {
+    display: flex;
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    max-width: 420px;
+    width: 100%;
+    padding: 28px;
+  }
+
+  .panel h2 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    margin: 0 0 20px;
+    text-transform: uppercase;
+  }
+
+  .line-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--rule-soft);
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+  }
+
+  .line-option:last-of-type { border-bottom: none; }
+
+  .line-option input {
+    accent-color: var(--status-good);
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+  }
+
+  .line-option .chip {
+    width: 4px;
+    height: 16px;
+  }
+
+  .panel-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 22px;
+  }
+
+  .panel-actions button {
+    flex: 1;
+    text-align: center;
   }
 
   .meta-row {
@@ -502,7 +601,12 @@
     <button type="button" data-view="live" aria-pressed="true">Check live status</button>
     <button type="button" data-view="history" aria-pressed="false">Show history</button>
     <button type="button" data-view="summary" aria-pressed="false">Show worst lines</button>
+    <button type="button" id="myLinesBtn">My lines</button>
   </div>
+
+  <p class="filter-note" id="filterNote">
+    Showing only your selected lines. <button type="button" id="clearFilterBtn">Show all</button>
+  </p>
 
   <div class="meta-row">
     <span id="viewLabel">LIVE STATUS</span>
@@ -520,6 +624,17 @@
 
 </div>
 
+<div class="panel-overlay" id="panelOverlay">
+  <div class="panel">
+    <h2>My lines</h2>
+    <div id="lineOptionsList"></div>
+    <div class="panel-actions">
+      <button type="button" id="panelCancelBtn">Cancel</button>
+      <button type="button" id="panelSaveBtn">Save</button>
+    </div>
+  </div>
+</div>
+
 <script>
   const LINE_COLORS = {
     "Bakerloo": "var(--bakerloo)",
@@ -535,17 +650,32 @@
     "Waterloo & City": "var(--waterloo)"
   };
 
-  // classifies any TfL status string into one of the 3 strict severity colors
+  const STORAGE_KEY = "tfl_my_lines";
+
   function statusSeverity(status) {
     if (status === "Good Service") return "good";
     if (status === "Minor Delays") return "minor";
-    return "bad"; // Severe Delays, Part Closure, Suspended, Planned Closure, Unknown, etc.
+    return "bad";
   }
 
   function severityColor(severity) {
     if (severity === "good") return "var(--status-good)";
     if (severity === "minor") return "var(--status-minor)";
     return "var(--status-bad)";
+  }
+
+  function getMyLines() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return [];
+      return JSON.parse(raw);
+    } catch (err) {
+      return [];
+    }
+  }
+
+  function setMyLines(lines) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(lines));
   }
 
   const RING_CIRCUMFERENCE = 364.4;
@@ -566,6 +696,68 @@
     document.getElementById("statWorstCard"),
     document.getElementById("statTimeCard")
   ];
+
+  const myLinesBtn = document.getElementById("myLinesBtn");
+  const panelOverlay = document.getElementById("panelOverlay");
+  const lineOptionsList = document.getElementById("lineOptionsList");
+  const panelCancelBtn = document.getElementById("panelCancelBtn");
+  const panelSaveBtn = document.getElementById("panelSaveBtn");
+  const filterNote = document.getElementById("filterNote");
+  const clearFilterBtn = document.getElementById("clearFilterBtn");
+
+  let lastLiveData = [];
+
+  function buildLineOptions() {
+    const selected = getMyLines();
+    let html = "";
+    Object.keys(LINE_COLORS).forEach(function (lineName) {
+      const isChecked = selected.indexOf(lineName) !== -1;
+      html += '<label class="line-option">' +
+        '<input type="checkbox" value="' + lineName + '"' + (isChecked ? " checked" : "") + '>' +
+        '<span class="chip" style="--chip-color:' + LINE_COLORS[lineName] + '"></span>' +
+        '<span>' + lineName + '</span>' +
+        '</label>';
+    });
+    lineOptionsList.innerHTML = html;
+  }
+
+  myLinesBtn.addEventListener("click", function () {
+    buildLineOptions();
+    panelOverlay.classList.add("open");
+  });
+
+  panelCancelBtn.addEventListener("click", function () {
+    panelOverlay.classList.remove("open");
+  });
+
+  panelOverlay.addEventListener("click", function (e) {
+    if (e.target === panelOverlay) panelOverlay.classList.remove("open");
+  });
+
+  panelSaveBtn.addEventListener("click", function () {
+    const checked = lineOptionsList.querySelectorAll("input[type=checkbox]:checked");
+    const selected = [];
+    checked.forEach(function (box) { selected.push(box.value); });
+    setMyLines(selected);
+    panelOverlay.classList.remove("open");
+    updateFilterNote();
+    if (viewLabel.textContent === "LIVE STATUS" && lastLiveData.length > 0) {
+      renderLive(lastLiveData);
+    }
+  });
+
+  clearFilterBtn.addEventListener("click", function () {
+    setMyLines([]);
+    updateFilterNote();
+    if (viewLabel.textContent === "LIVE STATUS" && lastLiveData.length > 0) {
+      renderLive(lastLiveData);
+    }
+  });
+
+  function updateFilterNote() {
+    const myLines = getMyLines();
+    filterNote.classList.toggle("visible", myLines.length > 0);
+  }
 
   buttons.forEach(function (btn) {
     btn.addEventListener("click", function () {
@@ -616,6 +808,27 @@
     requestAnimationFrame(tick);
   }
 
+  function updateBrowserChrome(percent, color) {
+    document.title = percent + "% Good Service — London Transport Delay Tracker";
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 32;
+    canvas.height = 32;
+    const ctx = canvas.getContext("2d");
+
+    ctx.fillStyle = "#0A0B0E";
+    ctx.fillRect(0, 0, 32, 32);
+
+    ctx.beginPath();
+    ctx.arc(16, 16, 10, 0, 2 * Math.PI);
+    ctx.fillStyle = getComputedStyle(document.documentElement)
+      .getPropertyValue(color.replace("var(", "").replace(")", "")).trim();
+    ctx.fill();
+
+    const favicon = document.querySelector("link[rel='icon']");
+    favicon.href = canvas.toDataURL("image/png");
+  }
+
   function setRing(percent) {
     let color = "var(--status-good)";
     if (percent < 50) color = "var(--status-bad)";
@@ -628,6 +841,8 @@
     requestAnimationFrame(function () {
       ringFill.style.strokeDashoffset = offset;
     });
+
+    updateBrowserChrome(percent, color);
   }
 
   async function loadLive() {
@@ -638,6 +853,7 @@
       const response = await fetch("/api/live");
       if (!response.ok) throw new Error("request failed");
       const data = await response.json();
+      lastLiveData = data;
       renderLive(data);
       updateStatsFromLive(data);
       stamp();
@@ -706,8 +922,19 @@
       showState("TfL returned no lines. Odd, but not your fault.", false);
       return;
     }
+
+    const myLines = getMyLines();
+    const linesToShow = myLines.length > 0
+      ? lines.filter(function (item) { return myLines.indexOf(item.line) !== -1; })
+      : lines;
+
+    if (linesToShow.length === 0) {
+      showState("None of your selected lines matched. Check 'My lines'.", false);
+      return;
+    }
+
     let html = "";
-    lines.forEach(function (item, index) {
+    linesToShow.forEach(function (item, index) {
       const lineColor = LINE_COLORS[item.line] || "var(--muted)";
       const severity = statusSeverity(item.status);
       const pillColor = severityColor(severity);
@@ -771,6 +998,8 @@
       });
     });
   }
+
+  updateFilterNote();
 </script>
 
 </body>
