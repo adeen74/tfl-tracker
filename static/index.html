@@ -4,19 +4,24 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>London Transport Delay Tracker</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230A0B0E'/%3E%3Ccircle cx='16' cy='16' r='10' fill='none' stroke='%23F5A623' stroke-width='3'/%3E%3Crect x='9' y='14.5' width='14' height='3' fill='%230A0B0E'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --board: #0B0D10;
-    --panel: #14171C;
-    --panel-raised: #191D23;
-    --flap: #F2EFE6;
-    --flap-dim: #C8C4B8;
-    --rule: #2B3038;
-    --signal: #E32017;
-    --muted: #7C838D;
+    --board: #0A0B0E;
+    --panel: #131519;
+    --panel-raised: #191C21;
+    --flap: #F5F2EA;
+    --flap-dim: #ADB2BB;
+    --rule: #262A31;
+    --rule-soft: #1D2026;
+    --muted: #6E7480;
+
+    --status-good: #F5A623;
+    --status-minor: #4FD1C5;
+    --status-bad: #E32017;
 
     --bakerloo: #B36305;
     --central: #E32017;
@@ -29,6 +34,8 @@
     --piccadilly: #003688;
     --victoria: #0098D4;
     --waterloo: #95CDBA;
+
+    --ease: 200ms ease;
   }
 
   * { box-sizing: border-box; }
@@ -39,60 +46,229 @@
     color: var(--flap);
     font-family: 'Space Grotesk', sans-serif;
     -webkit-font-smoothing: antialiased;
+    position: relative;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background:
+      radial-gradient(ellipse 900px 500px at 50% -10%, rgba(245,166,35,0.10), transparent 60%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.025) 0px, rgba(255,255,255,0.025) 1px, transparent 1px, transparent 3px);
   }
 
   .wrap {
-    max-width: 760px;
+    position: relative;
+    z-index: 1;
+    max-width: 920px;
     margin: 0 auto;
-    padding: 48px 20px 80px;
+    padding: 68px 24px 96px;
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
   }
 
   .board-id {
+    display: flex;
+    align-items: center;
+    gap: 9px;
     font-family: 'JetBrains Mono', monospace;
     font-size: 12px;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.22em;
     color: var(--muted);
-    margin-bottom: 14px;
+    margin-bottom: 22px;
+  }
+
+  .pulse {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--status-bad);
+    box-shadow: 0 0 0 0 rgba(227,32,23,0.6);
+    animation: pulse 2.2s infinite;
+  }
+
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(227,32,23,0.55); }
+    70%  { box-shadow: 0 0 0 9px rgba(227,32,23,0); }
+    100% { box-shadow: 0 0 0 0 rgba(227,32,23,0); }
   }
 
   h1 {
-    font-size: clamp(28px, 5vw, 40px);
+    font-size: clamp(34px, 6vw, 52px);
     font-weight: 700;
-    line-height: 1.15;
-    margin: 0 0 14px;
-    letter-spacing: -0.01em;
+    line-height: 1.08;
+    margin: 0 0 20px;
+    letter-spacing: -0.02em;
   }
 
   .lede {
     color: var(--flap-dim);
-    font-size: 16px;
-    line-height: 1.6;
-    max-width: 52ch;
-    margin: 0 0 36px;
+    font-size: 17px;
+    line-height: 1.65;
+    max-width: 54ch;
+    margin: 0 0 44px;
+  }
+
+  .health-panel {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    margin-bottom: 34px;
+  }
+
+  .ring-cell {
+    background: var(--panel);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 28px;
+  }
+
+  .ring-wrap {
+    position: relative;
+    width: 148px;
+    height: 148px;
+  }
+
+  .ring svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+  }
+
+  .ring circle {
+    fill: none;
+    stroke-width: 10;
+  }
+
+  .ring-track { stroke: var(--rule); }
+
+  .ring-fill {
+    stroke: var(--ring-color, var(--status-good));
+    stroke-linecap: round;
+    stroke-dasharray: 364.4;
+    stroke-dashoffset: 364.4;
+    transition: stroke-dashoffset 1.1s cubic-bezier(0.16, 1, 0.3, 1), stroke 0.4s ease;
+    filter: drop-shadow(0 0 6px var(--ring-color, var(--status-good)));
+  }
+
+  .ring-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ring-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 30px;
+    font-weight: 700;
+  }
+
+  .ring-sub {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.16em;
+    color: var(--muted);
+    margin-top: 5px;
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--rule);
+  }
+
+  .stat {
+    background: var(--panel);
+    padding: 22px 20px;
+    position: relative;
+    transition: transform var(--ease), background var(--ease);
+  }
+
+  .stat:hover {
+    transform: translateY(-2px);
+    background: var(--panel-raised);
+  }
+
+  .stat::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, rgba(255,255,255,0.06), transparent 60%);
+  }
+
+  .stat.loading {
+    animation: statPulse 1s ease-in-out infinite;
+  }
+
+  @keyframes statPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
+  }
+
+  .stat-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+    margin-bottom: 11px;
+  }
+
+  .stat-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: clamp(19px, 2.6vw, 25px);
+    font-weight: 700;
+    color: var(--flap);
+    line-height: 1.1;
+  }
+
+  .stat-value.accent { color: var(--status-bad); }
+
+  @media (max-width: 640px) {
+    .health-panel { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: repeat(1, 1fr); }
   }
 
   .controls {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
-    margin-bottom: 28px;
+    margin-bottom: 30px;
   }
 
   button {
     font-family: 'JetBrains Mono', monospace;
     font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.03em;
     background: var(--panel);
     color: var(--flap);
     border: 1px solid var(--rule);
-    padding: 12px 16px;
+    padding: 13px 18px;
     cursor: pointer;
-    transition: border-color 0.15s ease, background 0.15s ease;
+    transition: border-color var(--ease), background var(--ease), box-shadow var(--ease), transform 120ms ease;
   }
 
   button:hover {
-    border-color: #454C57;
+    border-color: #3A404A;
     background: var(--panel-raised);
+    box-shadow: 0 0 0 1px #3A404A, 0 0 14px rgba(245,166,35,0.08);
   }
+
+  button:active { transform: scale(0.98); }
 
   button:focus-visible {
     outline: 2px solid var(--victoria);
@@ -100,8 +276,8 @@
   }
 
   button[aria-pressed="true"] {
-    border-color: var(--signal);
-    color: var(--flap);
+    border-color: var(--status-bad);
+    box-shadow: inset 0 0 0 1px var(--status-bad), 0 0 16px rgba(227,32,23,0.15);
   }
 
   button[aria-pressed="true"]::before {
@@ -109,8 +285,8 @@
     display: inline-block;
     width: 6px;
     height: 6px;
-    background: var(--signal);
-    margin-right: 8px;
+    background: var(--status-bad);
+    margin-right: 9px;
     vertical-align: middle;
   }
 
@@ -121,9 +297,9 @@
     font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
     color: var(--muted);
-    letter-spacing: 0.08em;
+    letter-spacing: 0.14em;
     border-bottom: 1px solid var(--rule);
-    padding-bottom: 10px;
+    padding-bottom: 13px;
     margin-bottom: 2px;
   }
 
@@ -134,92 +310,146 @@
 
   .row {
     display: grid;
-    grid-template-columns: 4px 1fr auto;
+    grid-template-columns: 5px 1fr auto;
     align-items: center;
-    gap: 16px;
-    padding: 14px 16px;
-    border-bottom: 1px solid var(--rule);
+    gap: 18px;
+    padding: 19px 22px;
+    border-bottom: 1px solid var(--rule-soft);
+    transition: background var(--ease);
   }
 
+  .row:hover { background: rgba(255,255,255,0.025); }
   .row:last-child { border-bottom: none; }
 
   .chip {
-    width: 4px;
-    height: 22px;
+    width: 5px;
+    height: 26px;
     background: var(--chip-color, var(--muted));
+    box-shadow: 0 0 8px var(--chip-color, transparent);
   }
 
   .row-name {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 14px;
-    letter-spacing: 0.03em;
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
   }
 
-  .row-status {
+  .pill {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 13px;
-    color: var(--flap-dim);
-    text-align: right;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    padding: 6px 11px;
+    border: 1px solid var(--pill-color, var(--rule));
+    color: var(--pill-color, var(--flap-dim));
+    background: var(--pill-bg, transparent);
     white-space: nowrap;
-  }
-
-  .row-status.bad { color: var(--signal); }
-
-  .row-count {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 13px;
-    color: var(--flap);
-    text-align: right;
   }
 
   .history-row {
     display: grid;
     grid-template-columns: 1fr auto auto;
-    gap: 12px;
+    gap: 14px;
     align-items: baseline;
-    padding: 11px 16px;
-    border-bottom: 1px solid var(--rule);
+    padding: 14px 22px;
+    border-bottom: 1px solid var(--rule-soft);
     font-family: 'JetBrains Mono', monospace;
     font-size: 13px;
+    transition: background var(--ease);
   }
 
+  .history-row:hover { background: rgba(255,255,255,0.025); }
   .history-row:last-child { border-bottom: none; }
 
-  .history-name { color: var(--flap); }
+  .history-name { color: var(--flap); font-weight: 500; }
   .history-status { color: var(--flap-dim); text-align: right; }
   .history-time { color: var(--muted); font-size: 11px; text-align: right; }
 
-  .flip {
-    animation: flip 0.4s ease;
+  .bar-row {
+    padding: 19px 22px;
+    border-bottom: 1px solid var(--rule-soft);
+    transition: background var(--ease);
   }
 
-  @keyframes flip {
-    0%   { transform: scaleY(1);    opacity: 1; }
-    45%  { transform: scaleY(0.02); opacity: 0.3; }
-    55%  { transform: scaleY(0.02); opacity: 0.3; }
-    100% { transform: scaleY(1);    opacity: 1; }
+  .bar-row:hover { background: rgba(255,255,255,0.025); }
+  .bar-row:last-child { border-bottom: none; }
+
+  .bar-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 11px;
+  }
+
+  .bar-name-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .bar-name-group .chip { height: 14px; }
+
+  .bar-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .bar-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--flap);
+  }
+
+  .bar-track {
+    height: 10px;
+    background: var(--board);
+    border: 1px solid var(--rule);
+  }
+
+  .bar-fill {
+    height: 100%;
+    background: var(--bar-color, var(--muted));
+    width: 0%;
+    transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 0 8px var(--bar-color, transparent);
+  }
+
+  .enter {
+    animation: enter 0.4s ease both;
+  }
+
+  @keyframes enter {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .flip { animation: none; }
+    .enter { animation: none; }
+    .bar-fill { transition: none; }
+    .ring-fill { transition: none; }
+    .pulse { animation: none; }
+    .stat.loading { animation: none; }
   }
 
   .state {
-    padding: 40px 16px;
+    padding: 52px 16px;
     text-align: center;
     color: var(--muted);
     font-family: 'JetBrains Mono', monospace;
     font-size: 13px;
   }
 
-  .state.error { color: var(--signal); }
+  .state.error { color: var(--status-bad); }
 
   footer {
-    margin-top: 36px;
+    margin-top: 42px;
     font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
     color: var(--muted);
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
   }
 
   footer a { color: var(--flap-dim); }
@@ -229,13 +459,44 @@
 
 <div class="wrap">
 
-  <div class="board-id">LU · LIVE STATUS BOARD</div>
+  <div class="board-id"><span class="pulse"></span> LU · LIVE STATUS BOARD</div>
   <h1>London Transport Delay Tracker</h1>
   <p class="lede">
     Live Tube line status, pulled straight from TfL. Every check gets
     saved, so delays build into a real history over time instead of
     disappearing the moment you close the tab.
   </p>
+
+  <div class="health-panel">
+    <div class="ring-cell">
+      <div class="ring-wrap">
+        <div class="ring">
+          <svg viewBox="0 0 140 140">
+            <circle class="ring-track" cx="70" cy="70" r="58"></circle>
+            <circle class="ring-fill" id="ringFill" cx="70" cy="70" r="58"></circle>
+          </svg>
+        </div>
+        <div class="ring-label">
+          <div class="ring-value tabular" id="ringValue">0%</div>
+          <div class="ring-sub">GOOD SERVICE</div>
+        </div>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat" id="statLinesCard">
+        <div class="stat-label">LINES TRACKED</div>
+        <div class="stat-value tabular" id="statLines">—</div>
+      </div>
+      <div class="stat" id="statWorstCard">
+        <div class="stat-label">WORST LINE</div>
+        <div class="stat-value accent" id="statWorst">—</div>
+      </div>
+      <div class="stat" id="statTimeCard">
+        <div class="stat-label">LAST CHECK</div>
+        <div class="stat-value tabular" id="statTime">—</div>
+      </div>
+    </div>
+  </div>
 
   <div class="controls" role="group" aria-label="View">
     <button type="button" data-view="live" aria-pressed="true">Check live status</button>
@@ -245,7 +506,7 @@
 
   <div class="meta-row">
     <span id="viewLabel">LIVE STATUS</span>
-    <span id="lastChecked">—</span>
+    <span id="lastChecked" class="tabular">—</span>
   </div>
 
   <div class="board" id="board">
@@ -274,10 +535,37 @@
     "Waterloo & City": "var(--waterloo)"
   };
 
+  // classifies any TfL status string into one of the 3 strict severity colors
+  function statusSeverity(status) {
+    if (status === "Good Service") return "good";
+    if (status === "Minor Delays") return "minor";
+    return "bad"; // Severe Delays, Part Closure, Suspended, Planned Closure, Unknown, etc.
+  }
+
+  function severityColor(severity) {
+    if (severity === "good") return "var(--status-good)";
+    if (severity === "minor") return "var(--status-minor)";
+    return "var(--status-bad)";
+  }
+
+  const RING_CIRCUMFERENCE = 364.4;
+  const REDUCE_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
   const board = document.getElementById("board");
   const lastChecked = document.getElementById("lastChecked");
   const viewLabel = document.getElementById("viewLabel");
   const buttons = document.querySelectorAll("[data-view]");
+
+  const ringFill = document.getElementById("ringFill");
+  const ringValue = document.getElementById("ringValue");
+  const statLines = document.getElementById("statLines");
+  const statWorst = document.getElementById("statWorst");
+  const statTime = document.getElementById("statTime");
+  const statCards = [
+    document.getElementById("statLinesCard"),
+    document.getElementById("statWorstCard"),
+    document.getElementById("statTimeCard")
+  ];
 
   buttons.forEach(function (btn) {
     btn.addEventListener("click", function () {
@@ -296,24 +584,67 @@
 
   function stamp() {
     const now = new Date();
-    lastChecked.textContent = "updated " + now.toLocaleTimeString();
+    const timeText = now.toLocaleTimeString();
+    lastChecked.textContent = "updated " + timeText;
+    statTime.textContent = timeText;
   }
 
   function showState(message, isError) {
     board.innerHTML = '<p class="state' + (isError ? " error" : "") + '">' + message + "</p>";
   }
 
+  function setStatsLoading(isLoading) {
+    statCards.forEach(function (card) {
+      card.classList.toggle("loading", isLoading);
+    });
+  }
+
+  function animateCount(el, to, suffix) {
+    suffix = suffix || "";
+    if (REDUCE_MOTION) {
+      el.textContent = to + suffix;
+      return;
+    }
+    const duration = 850;
+    const start = performance.now();
+    function tick(now) {
+      const progress = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      el.textContent = Math.round(eased * to) + suffix;
+      if (progress < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+
+  function setRing(percent) {
+    let color = "var(--status-good)";
+    if (percent < 50) color = "var(--status-bad)";
+    else if (percent < 85) color = "var(--status-minor)";
+
+    ringFill.style.setProperty("--ring-color", color);
+    animateCount(ringValue, percent, "%");
+
+    const offset = RING_CIRCUMFERENCE * (1 - percent / 100);
+    requestAnimationFrame(function () {
+      ringFill.style.strokeDashoffset = offset;
+    });
+  }
+
   async function loadLive() {
     setLabel("LIVE STATUS");
+    setStatsLoading(true);
     showState("Checking with TfL…", false);
     try {
       const response = await fetch("/api/live");
       if (!response.ok) throw new Error("request failed");
       const data = await response.json();
       renderLive(data);
+      updateStatsFromLive(data);
       stamp();
     } catch (err) {
       showState("Couldn't reach TfL right now. Try again in a moment.", true);
+    } finally {
+      setStatsLoading(false);
     }
   }
 
@@ -339,10 +670,35 @@
       if (!response.ok) throw new Error("request failed");
       const data = await response.json();
       renderSummary(data);
+      updateStatsFromSummary(data);
       stamp();
     } catch (err) {
       showState("Couldn't load the summary right now.", true);
     }
+  }
+
+  function updateStatsFromLive(lines) {
+    if (lines.length === 0) return;
+    const goodCount = lines.filter(function (l) { return l.status === "Good Service"; }).length;
+    const percent = Math.round((goodCount / lines.length) * 100);
+    setRing(percent);
+    animateCount(statLines, lines.length, "");
+  }
+
+  function updateStatsFromSummary(rows) {
+    if (rows.length === 0) {
+      statWorst.textContent = "None";
+      return;
+    }
+    let worst = rows[0];
+    rows.forEach(function (r) {
+      if (r.disruption_count > worst.disruption_count) worst = r;
+    });
+    statWorst.textContent = worst.line;
+  }
+
+  function staggerDelay(index) {
+    return REDUCE_MOTION ? "0ms" : Math.min(index * 35, 350) + "ms";
   }
 
   function renderLive(lines) {
@@ -351,13 +707,15 @@
       return;
     }
     let html = "";
-    lines.forEach(function (item) {
-      const color = LINE_COLORS[item.line] || "var(--muted)";
-      const bad = item.status !== "Good Service";
-      html += '<div class="row flip">' +
-        '<div class="chip" style="--chip-color:' + color + '"></div>' +
+    lines.forEach(function (item, index) {
+      const lineColor = LINE_COLORS[item.line] || "var(--muted)";
+      const severity = statusSeverity(item.status);
+      const pillColor = severityColor(severity);
+      const pillBg = severity === "good" ? "transparent" : "color-mix(in srgb, " + pillColor + " 12%, transparent)";
+      html += '<div class="row enter" style="animation-delay:' + staggerDelay(index) + '">' +
+        '<div class="chip" style="--chip-color:' + lineColor + '"></div>' +
         '<div class="row-name">' + item.line + '</div>' +
-        '<div class="row-status' + (bad ? " bad" : "") + '">' + item.status + '</div>' +
+        '<div class="pill" style="--pill-color:' + pillColor + '; --pill-bg:' + pillBg + '">' + item.status + '</div>' +
         '</div>';
     });
     board.innerHTML = html;
@@ -369,11 +727,11 @@
       return;
     }
     let html = "";
-    rows.forEach(function (row) {
-      html += '<div class="history-row flip">' +
+    rows.forEach(function (row, index) {
+      html += '<div class="history-row enter" style="animation-delay:' + staggerDelay(index) + '">' +
         '<div class="history-name">' + row.line_name + '</div>' +
         '<div class="history-status">' + row.status + '</div>' +
-        '<div class="history-time">' + row.checked_at + '</div>' +
+        '<div class="history-time tabular">' + row.checked_at + '</div>' +
         '</div>';
     });
     board.innerHTML = html;
@@ -384,16 +742,34 @@
       showState("No disruptions recorded yet — that's a good sign.", false);
       return;
     }
+
+    const sorted = rows.slice().sort(function (a, b) {
+      return b.disruption_count - a.disruption_count;
+    });
+
+    const maxCount = sorted[0].disruption_count;
+
     let html = "";
-    rows.forEach(function (item) {
+    sorted.forEach(function (item, index) {
       const color = LINE_COLORS[item.line] || "var(--muted)";
-      html += '<div class="row flip">' +
+      html += '<div class="bar-row enter" style="animation-delay:' + staggerDelay(index) + '">' +
+        '<div class="bar-top">' +
+        '<div class="bar-name-group">' +
         '<div class="chip" style="--chip-color:' + color + '"></div>' +
-        '<div class="row-name">' + item.line + '</div>' +
-        '<div class="row-count">' + item.disruption_count + ' checks with issues</div>' +
+        '<div class="bar-name">' + item.line + '</div>' +
+        '</div>' +
+        '<div class="bar-count tabular">' + item.disruption_count + '</div>' +
+        '</div>' +
+        '<div class="bar-track"><div class="bar-fill" style="--bar-color:' + color + '" data-width="' + ((item.disruption_count / maxCount) * 100) + '"></div></div>' +
         '</div>';
     });
     board.innerHTML = html;
+
+    requestAnimationFrame(function () {
+      document.querySelectorAll(".bar-fill").forEach(function (fill) {
+        fill.style.width = fill.getAttribute("data-width") + "%";
+      });
+    });
   }
 </script>
 

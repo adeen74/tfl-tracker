@@ -1,6 +1,6 @@
 # app.py
 
-from flask import Flask, jsonify, send_from_directory
+from flask import Flask, jsonify, send_from_directory, Response
 import sqlite3
 import requests
 import os
@@ -35,7 +35,11 @@ def parse_line_statuses(data):
     for line in data:
         line_name = line["name"]
         statuses = line["lineStatuses"]
-        status = statuses[0]["statusSeverityDescription"]
+
+        if len(statuses) > 0:
+            status = statuses[0]["statusSeverityDescription"]
+        else:
+            status = "Unknown"
 
         one_result = {"line": line_name, "status": status}
         results.append(one_result)
@@ -98,6 +102,29 @@ def history():
         history_list.append(one_row)
 
     return jsonify(history_list)
+
+
+@app.route("/api/history/csv")
+def history_csv():
+    connection = sqlite3.connect(DB_FILE)
+    cursor = connection.cursor()
+
+    cursor.execute("SELECT line_name, status, checked_at FROM disruptions")
+    rows = cursor.fetchall()
+
+    connection.close()
+
+    csv_lines = ["line_name,status,checked_at"]
+    for row in rows:
+        csv_lines.append(row[0] + "," + row[1] + "," + row[2])
+
+    csv_text = "\n".join(csv_lines)
+
+    return Response(
+        csv_text,
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=tfl_history.csv"}
+    )
 
 
 @app.route("/api/summary")
