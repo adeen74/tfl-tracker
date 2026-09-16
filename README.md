@@ -27,6 +27,7 @@ this file to genuinely show how the project came together.
 | Frontend | HTML, CSS, vanilla JavaScript |
 | External API | TfL Unified API |
 | Testing | pytest |
+| Containerization | Docker |
 
 ## Endpoints
 
@@ -82,7 +83,9 @@ sequenceDiagram
 - Parameterized SQL queries throughout (protection against SQL injection)
 - Graceful fallback to last saved data if the TfL API is down or rate-limited
 - CSV export for taking data out of the app
+- A "My Lines" filter, saved per-browser, so the live view can be personalized instead of always showing all 11 lines
 - Custom-designed frontend, not a template — built around a departure-board concept using real Tube line colours
+- Containerized with Docker, so it runs identically on any machine without needing Python set up locally first
 - One automated pytest test on the core parsing logic, with a clear path to add more
 - Built incrementally with a full day-by-day git history and log (see below)
 
@@ -93,26 +96,39 @@ sequenceDiagram
 - Only one automated test exists so far — the database and Flask routes themselves aren't covered yet
 - Runs locally only; not yet deployed to a public URL
 - Status severity is currently grouped into three broad categories rather than reflecting TfL's full range of status codes
+- The Docker container's SQLite database resets on restart — no persistent volume set up yet
 
 ## Project structure
+
+```
 tfl-tracker/
-├── app.py Flask routes, TfL fetch, database logic
-├── test_app.py pytest suite for the parsing logic
+├── app.py              Flask routes, TfL fetch, database logic
+├── test_app.py         pytest suite for the parsing logic
 ├── static/
-│ └── index.html Frontend — departure-board styled dashboard
-├── screenshots/ Captures of the running app
-├── requirements.txt Runtime dependencies
-├── README.md This file, including a day-by-day build log
+│   └── index.html      Frontend — departure-board styled dashboard
+├── screenshots/         Captures of the running app
+├── requirements.txt     Runtime dependencies
+├── Dockerfile            Container build instructions
+├── .dockerignore         Files excluded from the Docker build
+├── README.md             This file, including a day-by-day build log
 └── .gitignore
+```
 
 ## Getting started
 
+**Run locally:**
 ```bash
 pip install -r requirements.txt
 export TFL_APP_KEY="your-tfl-api-key"   # optional, works without one at low volume
 python3 app.py
 ```
+Then open `http://127.0.0.1:5000`.
 
+**Or run with Docker:**
+```bash
+docker build -t tfl-tracker .
+docker run -p 5000:5000 -e TFL_APP_KEY="your-tfl-api-key" tfl-tracker
+```
 Then open `http://127.0.0.1:5000`.
 
 ## Running the tests
@@ -132,6 +148,7 @@ pytest
 - Deploy to a public URL (Render or Railway) instead of running
   locally only
 - Add a history chart showing % good service over time per line
+- Add a persistent Docker volume so history survives container restarts
 
 ## License
 
@@ -337,6 +354,69 @@ row entrance animations, and a subtle glow/texture treatment across
 the board. Wanted it to look like something worth actually screenshotting,
 not just functional.
 
+### Day 7 — a personal filter, and a small surprise
+
+Added a "My Lines" panel — a checkbox for each Tube line, saved with
+`localStorage` so the choice sticks even after closing the browser.
+Once someone picks their lines, the live status view only shows
+those, with a small note and a "Show all" link to undo it. First
+feature in the project that adapts to a specific person instead of
+just displaying the same thing to everyone.
+
+```javascript
+function getMyLines() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  return raw ? JSON.parse(raw) : [];
+}
+
+function setMyLines(lines) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(lines));
+}
+```
+
+Also added something small but fun: the browser tab itself now
+updates live. The title shows the current "% Good Service" number,
+and the favicon becomes a colored dot matching the ring chart's
+health color, drawn on the fly using a `<canvas>` element. Neither of
+these touch the backend at all — both just reuse data the page
+already had, displayed somewhere new.
+
+Both features are pure frontend JavaScript, no Python or database
+changes, so the existing pytest test still passes untouched.
+
+### Day 8 — containerizing with Docker
+
+Added a `Dockerfile` so the app can run identically on any machine
+without needing Python or dependencies installed locally first — just
+Docker itself.
+
+Had to change `app.run(debug=True)` to `app.run(host="0.0.0.0", debug=True)`,
+since Flask's dev server only listens on `127.0.0.1` by default, which
+isn't reachable from outside the container.
+
+```dockerfile
+FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+EXPOSE 5000
+CMD ["python", "app.py"]
+```
+
+Also discovered along the way that `requirements.txt` had never
+actually been created despite being referenced in the README since
+Day 6 — the build failed immediately with a clear "file not found"
+error, which was actually a good reminder that Docker builds are
+strict about exactly what's present, unlike running locally where
+Python already has everything installed.
+
+Built and ran it locally with `docker build` and `docker run`, passing
+the TFL API key in as an environment variable at runtime rather than
+baking it into the image. One known limitation: the SQLite file
+resets each time the container restarts, since there's no persistent
+volume set up yet — a good next step.
+
 ## Roadmap
 
 - [x] Day 1 — Flask app runs, single route
@@ -345,3 +425,5 @@ not just functional.
 - [x] Day 4 — Save results to DB, add JSON endpoints
 - [x] Day 5 — Add a summary endpoint and a real frontend
 - [x] Day 6 — First pytest test, safer parsing, CSV export, API fallback, visual polish
+- [x] Day 7 — My Lines filter, live-updating tab title/favicon
+- [x] Day 8 — Containerized with Docker

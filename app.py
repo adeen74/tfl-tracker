@@ -81,9 +81,22 @@ def home():
 
 @app.route("/api/live")
 def live_status():
-    results = fetch_live_status()
-    save_to_history(results)
-    return jsonify(results)
+    try:
+        results = fetch_live_status()
+        save_to_history(results)
+        return jsonify(results)
+    except requests.exceptions.RequestException:
+        connection = sqlite3.connect(DB_FILE)
+        cursor = connection.cursor()
+        cursor.execute("SELECT line_name, status FROM disruptions ORDER BY checked_at DESC LIMIT 11")
+        rows = cursor.fetchall()
+        connection.close()
+
+        fallback_list = []
+        for row in rows:
+            fallback_list.append({"line": row[0], "status": row[1]})
+
+        return jsonify(fallback_list)
 
 
 @app.route("/api/history")
@@ -159,4 +172,4 @@ def summary():
 
 if __name__ == "__main__":
     init_db()
-    app.run(debug=True)
+    app.run(host="0.0.0.0", debug=True)

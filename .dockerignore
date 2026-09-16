@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+venv/
+.venv/
+tfl_history.db
+.git
+.gitignore
+screenshots/
+*.md
+test_app.py
+.pytest_cache/
