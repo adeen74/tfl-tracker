@@ -41,6 +41,7 @@ this file to genuinely show how the project came together.
 | External API | TfL Unified API |
 | Testing | pytest |
 | Containerization | Docker |
+| CI | GitHub Actions |
 
 ## Endpoints
 
@@ -430,6 +431,12 @@ baking it into the image. One known limitation: the SQLite file
 resets each time the container restarts, since there's no persistent
 volume set up yet — a good next step.
 
+### Day 9: CI with GitHub Actions
+I added a workflow file at `.github/workflows/test.yml`. Now every push
+to `main` installs the requirements and runs `pytest` on GitHub's servers.
+My first run passed in about 12 seconds. I wanted proof that the test
+passes on a clean machine and not only on my laptop.
+
 ## Roadmap
 
 - [x] Day 1 — Flask app runs, single route
@@ -440,3 +447,4 @@ volume set up yet — a good next step.
 - [x] Day 6 — First pytest test, safer parsing, CSV export, API fallback, visual polish
 - [x] Day 7 — My Lines filter, live-updating tab title/favicon
 - [x] Day 8 — Containerized with Docker
+- [x] Day 9 — GitHub Actions CI running pytest on every push
