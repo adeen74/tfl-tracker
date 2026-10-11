@@ -1,8 +1,21 @@
+<div align="center">
+
 # London Transport Delay Tracker
+
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white)
+![Flask](https://img.shields.io/badge/Flask-black?style=flat-square&logo=flask)
+![SQLite](https://img.shields.io/badge/SQLite-07405E?style=flat-square&logo=sqlite&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
+![Tests](https://github.com/adeen74/tfl-tracker/actions/workflows/test.yml/badge.svg)
 
 A Flask app that checks live status for London Tube lines using TFL's
 public API, and saves each check to a database so I can build up a
 history of delays over time.
+
+</div>
+
+---
 
 I'm building this one small piece at a time and updating this README
 as I go, instead of writing it all at once at the end. Partly so I
